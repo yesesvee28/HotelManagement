@@ -35,6 +35,10 @@ class RoomAvailability{
         this.leavingDate=null;
     }
 
+    public boolean getIsAvaialble(int roomNo){
+        return isAvailable;
+    }
+
 }
 public class HotelManagement{
     public static final Map<Integer,Map<Integer,List<Integer>>> floorCategoryRooms=new HashMap<>();
@@ -46,11 +50,12 @@ public class HotelManagement{
     // of room no(101) which has isAvailable-true and leavingDate=null.
     public static final List<CustomerDetails> customer=new ArrayList<>();
     //It stores the list of customers details.
-    
+    public static final Map<Integer,String> roomCategory=new HashMap<>();
+    //It stores the String names of categories.
     
     public static void main(String[] args) throws IOException{
         initializeRooms();
-        displayFloorCategoryRooms();
+        availableRooms();
     }
     public static void initializeRooms(){
         for(int floor=1;floor<=5;floor++){
@@ -67,15 +72,26 @@ public class HotelManagement{
                 }
             }
         }
+        roomCategory.put(1,"Non AC Rooms");
+        roomCategory.put(2,"AC Rooms");
+        roomCategory.put(3,"Beach View Non AC Rooms");
+        roomCategory.put(4,"Beach View AC Rooms");
     }
-    public static void displayFloorCategoryRooms(){
+    public static void availableRooms(){
         for(Map.Entry<Integer,Map<Integer,List<Integer>>> floorEntry:floorCategoryRooms.entrySet()){
             int floor=floorEntry.getKey();
+            System.out.println("Floor:"+floor);
             Map<Integer,List<Integer>> categories=floorEntry.getValue();
             for(Map.Entry<Integer,List<Integer>> categoryEntry:categories.entrySet()){
                 int category=categoryEntry.getKey();
+                System.out.print(roomCategory.get(category)+":");
                 List<Integer> rooms=categoryEntry.getValue();
-                System.out.println("Floor:"+floor+" Category:"+category+" Rooms:"+rooms);
+                for(int room:rooms){
+                    if(roomAvailabilityStatus.get(room).getIsAvaialble(room)){
+                        System.out.print(room+" ");
+                    }
+                }
+                System.out.println();
             }
         }
     }
