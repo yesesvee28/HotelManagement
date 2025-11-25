@@ -19,6 +19,11 @@ class CustomerDetails{
         this.roomNo=roomNo;
         this.leavingDate=leavingDate;
     }
+
+    @Override
+    public String toString(){
+        return name+","+phoneNumber+","+age+","+roomNo+","+leavingDate;
+    }
 }
 
 class RoomAvailability{
@@ -35,29 +40,99 @@ class RoomAvailability{
         this.leavingDate=null;
     }
 
-    public boolean getIsAvaialble(int roomNo){
-        return isAvailable;
+    public String toString(DateTimeFormatter format){
+        String leavingStr=(leavingDate==null)? "": leavingDate.format(format);
+        return roomNo+","+isAvailable+","+leavingStr;
     }
-
 }
 public class HotelManagement{
-    public static final Map<Integer,Map<Integer,List<Integer>>> floorCategoryRooms=new HashMap<>();
     //floorCategoryRooms is a hashmap where 1st map contains key as floor(1,2,3,4,5) and its values are 
     // map containing key as categories(1-Non AC,2-AC,3-Beach view Non-AC,4-Beach view AC) and its 
     // values are room nos on each floor which match the category(1-1(Non-AC)-[101,102])
-    public static final Map<Integer,RoomAvailability> roomAvailabilityStatus=new HashMap<>();
+    public static final Map<Integer,Map<Integer,List<Integer>>> floorCategoryRooms=new HashMap<>();
+    
     //roomAvailabilityStatus is a hashmap where integer is room no(101) and RoomAvailabile is a newly created object 
     // of room no(101) which has isAvailable-true and leavingDate=null.
-    public static final List<CustomerDetails> customer=new ArrayList<>();
+    public static final Map<Integer,RoomAvailability> roomAvailabilityStatus=new HashMap<>();
+    
     //It stores the list of customers details.
-    public static final Map<Integer,String> roomCategory=new HashMap<>();
+    public static final List<CustomerDetails> customers=new ArrayList<>();
+    
     //It stores the String names of categories.
+    public static final Map<Integer,String> roomCategory=new HashMap<>();
+
+    //Defining customers file name
+    public static final String CUSTOMER_FILE="customers.csv";
+    //Defining room file name
+    public static final String ROOM_FILE="rooms.csv";
+    //Defining date time format
+    public static final DateTimeFormatter dtFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
     
     public static void main(String[] args) throws IOException{
+        //Initialises the rooms
         initializeRooms();
-        availableRooms();
+        //Displays the categories and rooms each floor has
+        // availableRooms();
+
+
+        Scanner sc=new Scanner(System.in);
+
+        while(true){
+            System.out.println("Enter customer Details:");
+
+            System.out.print("Enter a name:");
+            String name=sc.nextLine();
+            System.out.print("Enter Phone number:");
+            long phoneNumber=Long.parseLong(sc.nextLine());
+            System.out.print("Enter age:");
+            int age=Integer.parseInt(sc.nextLine());
+            if(age<18){
+                System.out.println("You must be 18 or above to book a room.");
+                break;
+            }
+            boolean isRoomAllocated=false;
+            while(!isRoomAllocated){
+                System.out.print("Enter a Floor(1-5):");
+                int floor=Integer.parseInt(sc.nextLine());
+                if(floor<1||floor>5){
+                    System.out.println("Floor not available.Enter available floor");
+                    continue;
+                }
+                availableRooms(floor);
+                System.out.print("Enter a Category(1:Non AC, 2:AC, 3:Beach View Non AC,4:Beach View AC):");
+                int category=Integer.parseInt(sc.nextLine());
+                if(category<1||category>4){
+                    System.out.println("Category not available.Enter available category");
+                    continue;
+                }
+                System.out.println("Enter Days of stay:");
+                int days=Integer.parseInt(sc.nextLine());
+                LocalDateTime leavingDate=LocalDateTime.now().plusDays(days);
+                Optional<Integer> assignedRoom=allocateRoom(floor,category,leavingDate);
+                if(assignedRoom.isPresent()){
+                    int roomNo=assignedRoom.get();
+                    System.out.println("Room assigned:"+roomNo);
+                    CustomerDetails c=new CustomerDetails(name, phoneNumber, age, roomNo,
+                    leavingDate.toLocalDate().toString());
+                    customers.add(c);
+                    isRoomAllocated=true;
+                    saveCustomerToFile(c);
+                    saveRoomToFile();
+                }
+                else{
+                    System.out.println(
+                    "No rooms available for this floor and category.Enter another floor and category.");
+                }
+            }
+            System.out.println("If you want to exit type 'exit':");
+            String s=sc.nextLine();
+            if(s.equalsIgnoreCase("exit")){
+                break;
+            }
+        }
+        sc.close();
     }
-    public static void initializeRooms(){
+    private static void initializeRooms(){
         for(int floor=1;floor<=5;floor++){
             Map<Integer,List<Integer>> categoryRooms=new HashMap<>();
             categoryRooms.put(1,Arrays.asList(floor*100+1,floor*100+2));
@@ -77,7 +152,7 @@ public class HotelManagement{
         roomCategory.put(3,"Beach View Non AC Rooms");
         roomCategory.put(4,"Beach View AC Rooms");
     }
-    public static void availableRooms(){
+    private static void availableRooms(){
         for(Map.Entry<Integer,Map<Integer,List<Integer>>> floorEntry:floorCategoryRooms.entrySet()){
             int floor=floorEntry.getKey();
             System.out.println("Floor:"+floor);
@@ -87,11 +162,55 @@ public class HotelManagement{
                 System.out.print(roomCategory.get(category)+":");
                 List<Integer> rooms=categoryEntry.getValue();
                 for(int room:rooms){
-                    if(roomAvailabilityStatus.get(room).getIsAvaialble(room)){
+                    if(roomAvailabilityStatus.get(room).isAvailable){
                         System.out.print(room+" ");
                     }
                 }
                 System.out.println();
+            }
+        }
+    }
+    private static void availableRooms(int f){
+        for(Map.Entry<Integer,Map<Integer,List<Integer>>> floorEntry:floorCategoryRooms.entrySet()){
+            int floor=floorEntry.getKey();
+            if(floor!=f){
+                continue;
+            }
+            Map<Integer,List<Integer>> categories=floorEntry.getValue();
+            for(Map.Entry<Integer,List<Integer>> categoryEntry:categories.entrySet()){
+                int category=categoryEntry.getKey();
+                System.out.print(roomCategory.get(category)+":");
+                List<Integer> rooms=categoryEntry.getValue();
+                for(int room:rooms){
+                    if(roomAvailabilityStatus.get(room).isAvailable){
+                        System.out.print(room+" ");
+                    }
+                }
+                System.out.println();
+            }
+        }
+    }
+    private static Optional<Integer> allocateRoom(int floor,int category,LocalDateTime leavingDate){
+        List<Integer> rooms=floorCategoryRooms.get(floor).get(category);
+        for(int room:rooms){
+            RoomAvailability availability=roomAvailabilityStatus.get(room);
+            if(availability.isAvailable){
+                availability.isAvailable=false;
+                availability.leavingDate=leavingDate;
+                return Optional.of(room);
+            }
+        }
+        return Optional.empty();
+    }
+    private static void saveCustomerToFile(CustomerDetails c) throws IOException{
+        try(PrintWriter out=new PrintWriter(new FileWriter(CUSTOMER_FILE,true))){
+            out.println(c);
+        }
+    }
+    private static void saveRoomToFile() throws IOException{
+        try(PrintWriter out=new PrintWriter(new FileWriter(ROOM_FILE))){
+            for(RoomAvailability r:roomAvailabilityStatus.values()){
+                out.println(r.toString(dtFormatter));
             }
         }
     }
