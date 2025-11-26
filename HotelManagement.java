@@ -24,6 +24,17 @@ class CustomerDetails{
     public String toString(){
         return name+","+phoneNumber+","+age+","+roomNo+","+leavingDate;
     }
+
+    public static CustomerDetails fromString(String line){
+        String[] parts=line.split(",");
+        return new CustomerDetails(
+            parts[0],
+            Long.parseLong(parts[1]),
+            Integer.parseInt(parts[2]),
+            Integer.parseInt(parts[3]),
+            parts[4]
+        );
+    }
 }
 
 class RoomAvailability{
@@ -41,8 +52,16 @@ class RoomAvailability{
     }
 
     public String toString(DateTimeFormatter format){
-        String leavingStr=(leavingDate==null)? "": leavingDate.format(format);
+        String leavingStr=(leavingDate==null)? "null": leavingDate.format(format);
         return roomNo+","+isAvailable+","+leavingStr;
+    }
+
+    public static RoomAvailability fromString(String line,DateTimeFormatter format){
+        String[] parts=line.split(",");
+        RoomAvailability r=new RoomAvailability(Integer.parseInt(parts[0]));
+        r.isAvailable=Boolean.parseBoolean(parts[1]);
+        r.leavingDate=(parts[2].equals("null"))? null:LocalDateTime.parse(parts[2],format);
+        return r;
     }
 }
 public class HotelManagement{
@@ -73,6 +92,8 @@ public class HotelManagement{
         initializeRooms();
         //Displays the categories and rooms each floor has
         // availableRooms();
+        loadCustomersFromFile();
+        loadRoomsFromFile();
 
 
         Scanner sc=new Scanner(System.in);
@@ -105,7 +126,7 @@ public class HotelManagement{
                     System.out.println("Category not available.Enter available category");
                     continue;
                 }
-                System.out.println("Enter Days of stay:");
+                System.out.print("Enter Days of stay:");
                 int days=Integer.parseInt(sc.nextLine());
                 LocalDateTime leavingDate=LocalDateTime.now().plusDays(days);
                 Optional<Integer> assignedRoom=allocateRoom(floor,category,leavingDate);
@@ -124,7 +145,7 @@ public class HotelManagement{
                     "No rooms available for this floor and category.Enter another floor and category.");
                 }
             }
-            System.out.println("If you want to exit type 'exit':");
+            System.out.print("If you want to exit type 'exit':");
             String s=sc.nextLine();
             if(s.equalsIgnoreCase("exit")){
                 break;
@@ -152,24 +173,24 @@ public class HotelManagement{
         roomCategory.put(3,"Beach View Non AC Rooms");
         roomCategory.put(4,"Beach View AC Rooms");
     }
-    private static void availableRooms(){
-        for(Map.Entry<Integer,Map<Integer,List<Integer>>> floorEntry:floorCategoryRooms.entrySet()){
-            int floor=floorEntry.getKey();
-            System.out.println("Floor:"+floor);
-            Map<Integer,List<Integer>> categories=floorEntry.getValue();
-            for(Map.Entry<Integer,List<Integer>> categoryEntry:categories.entrySet()){
-                int category=categoryEntry.getKey();
-                System.out.print(roomCategory.get(category)+":");
-                List<Integer> rooms=categoryEntry.getValue();
-                for(int room:rooms){
-                    if(roomAvailabilityStatus.get(room).isAvailable){
-                        System.out.print(room+" ");
-                    }
-                }
-                System.out.println();
-            }
-        }
-    }
+    // private static void availableRooms(){
+    //     for(Map.Entry<Integer,Map<Integer,List<Integer>>> floorEntry:floorCategoryRooms.entrySet()){
+    //         int floor=floorEntry.getKey();
+    //         System.out.println("Floor:"+floor);
+    //         Map<Integer,List<Integer>> categories=floorEntry.getValue();
+    //         for(Map.Entry<Integer,List<Integer>> categoryEntry:categories.entrySet()){
+    //             int category=categoryEntry.getKey();
+    //             System.out.print(roomCategory.get(category)+":");
+    //             List<Integer> rooms=categoryEntry.getValue();
+    //             for(int room:rooms){
+    //                 if(roomAvailabilityStatus.get(room).isAvailable){
+    //                     System.out.print(room+" ");
+    //                 }
+    //             }
+    //             System.out.println();
+    //         }
+    //     }
+    // }
     private static void availableRooms(int f){
         for(Map.Entry<Integer,Map<Integer,List<Integer>>> floorEntry:floorCategoryRooms.entrySet()){
             int floor=floorEntry.getKey();
@@ -202,15 +223,41 @@ public class HotelManagement{
         }
         return Optional.empty();
     }
+
+    //File I/O methods
     private static void saveCustomerToFile(CustomerDetails c) throws IOException{
         try(PrintWriter out=new PrintWriter(new FileWriter(CUSTOMER_FILE,true))){
             out.println(c);
         }
     }
+
+    private static void loadCustomersFromFile() throws IOException{
+        File file=new File(CUSTOMER_FILE);
+        if(!file.exists())return;
+        try(BufferedReader in=new BufferedReader(new FileReader(file))){
+            String line;
+            while((line=in.readLine())!=null){
+                customers.add(CustomerDetails.fromString(line));
+            }
+        }
+    }
+
     private static void saveRoomToFile() throws IOException{
         try(PrintWriter out=new PrintWriter(new FileWriter(ROOM_FILE))){
             for(RoomAvailability r:roomAvailabilityStatus.values()){
                 out.println(r.toString(dtFormatter));
+            }
+        }
+    }
+
+    private static void loadRoomsFromFile() throws IOException{
+        File file=new File(ROOM_FILE);
+        if(!file.exists())return;
+        try(BufferedReader in=new BufferedReader(new FileReader(file))){
+            String line;
+            while((line=in.readLine())!=null){
+                RoomAvailability r=RoomAvailability.fromString(line, dtFormatter);
+                roomAvailabilityStatus.put(r.roomNo,r);
             }
         }
     }
