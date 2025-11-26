@@ -90,10 +90,21 @@ public class HotelManagement{
     public static void main(String[] args) throws IOException{
         //Initialises the rooms
         initializeRooms();
+
         //Displays the categories and rooms each floor has
         // availableRooms();
+
+        //Loads the customers form customers.csv
         loadCustomersFromFile();
+
+        //Loads the customers from rooms.csv
         loadRoomsFromFile();
+
+        //Updates the room status
+        updateRoomStatusAfterExpiry();
+        
+        //Saves the updated date to rooms.csv
+        saveRoomToFile();
 
 
         Scanner sc=new Scanner(System.in);
@@ -222,6 +233,16 @@ public class HotelManagement{
             }
         }
         return Optional.empty();
+    }
+
+    private static void updateRoomStatusAfterExpiry(){
+        LocalDateTime now=LocalDateTime.now();
+        for(RoomAvailability r:roomAvailabilityStatus.values()){
+            if(!r.isAvailable && r.leavingDate!=null && r.leavingDate.isBefore(now)){
+                r.isAvailable=true;
+                r.leavingDate=null;
+            }
+        }
     }
 
     //File I/O methods
